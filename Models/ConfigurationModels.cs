@@ -11,6 +11,8 @@ namespace IntegracionKoach360.Models
         public string claveApi { get; set; } = string.Empty;
         public int intervaloHoras { get; set; } = 1;
         public string baseUrl { get; set; } = string.Empty;
+        public string rutaVentas { get; set; } = "ventas.json";
+        public string rutaAsistencias { get; set; } = "asistencias.json";
         public ConfiguracionLogging logging { get; set; } = new ConfiguracionLogging();
     }
 

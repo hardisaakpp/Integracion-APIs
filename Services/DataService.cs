@@ -17,12 +17,12 @@ namespace IntegracionKoach360.Services
 
         public async Task<VentaData[]?> LoadVentasAsync()
         {
-            return await LoadDataFromFile<VentaData[]>("ventas.json");
+            return await LoadDataFromFile<VentaData[]>(_config.rutaVentas);
         }
 
         public async Task<AsistenciaData[]?> LoadAsistenciasAsync()
         {
-            return await LoadDataFromFile<AsistenciaData[]>("asistencias.json");
+            return await LoadDataFromFile<AsistenciaData[]>(_config.rutaAsistencias);
         }
 
         public Task<VentaData[]> ValidateAndCompleteVentasAsync(VentaData[] ventas)
