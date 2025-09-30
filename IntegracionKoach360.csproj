@@ -5,7 +5,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <SatelliteResourceLanguages>none</SatelliteResourceLanguages>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,5 +15,26 @@
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
   </ItemGroup>
+
+  <!-- Eliminar carpetas de recursos satelitales después de publicar -->
+  <Target Name="RemoveSatelliteAssemblies" AfterTargets="Publish">
+    <ItemGroup>
+      <SatelliteFolders Include="$(PublishDir)cs" />
+      <SatelliteFolders Include="$(PublishDir)de" />
+      <SatelliteFolders Include="$(PublishDir)es" />
+      <SatelliteFolders Include="$(PublishDir)fr" />
+      <SatelliteFolders Include="$(PublishDir)it" />
+      <SatelliteFolders Include="$(PublishDir)ja" />
+      <SatelliteFolders Include="$(PublishDir)ko" />
+      <SatelliteFolders Include="$(PublishDir)pl" />
+      <SatelliteFolders Include="$(PublishDir)pt-BR" />
+      <SatelliteFolders Include="$(PublishDir)ru" />
+      <SatelliteFolders Include="$(PublishDir)tr" />
+      <SatelliteFolders Include="$(PublishDir)zh-Hans" />
+      <SatelliteFolders Include="$(PublishDir)zh-Hant" />
+    </ItemGroup>
+    <RemoveDir Directories="@(SatelliteFolders)" />
+    <Message Text="Carpetas de recursos satelitales eliminadas automáticamente" Importance="high" />
+  </Target>
 
 </Project>
