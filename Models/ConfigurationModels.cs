@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace IntegracionKoach360.Models
 {
@@ -11,9 +12,15 @@ namespace IntegracionKoach360.Models
         public string claveApi { get; set; } = string.Empty;
         public int intervaloHoras { get; set; } = 1;
         public string baseUrl { get; set; } = string.Empty;
-        public string rutaVentas { get; set; } = "ventas.json";
-        public string rutaAsistencias { get; set; } = "asistencias.json";
+        
+        public ConfiguracionDatabase database { get; set; } = new ConfiguracionDatabase();
         public ConfiguracionLogging logging { get; set; } = new ConfiguracionLogging();
+    }
+
+    public class ConfiguracionDatabase
+    {
+        public string connectionString { get; set; } = string.Empty;
+        public int commandTimeout { get; set; } = 120;
     }
 
     public class ConfiguracionLogging

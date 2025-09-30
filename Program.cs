@@ -39,7 +39,8 @@ namespace IntegracionKoach360
 
                 // Inicializar servicios restantes
                 var apiService = new ApiService(httpClient, loggingService, config);
-                var dataService = new DataService(loggingService, config);
+                var databaseService = new DatabaseService(loggingService, config);
+                var dataService = new DataService(databaseService, loggingService, config);
                 integrationService = new IntegrationService(apiService, dataService, loggingService, config);
 
                 // Ejecutar integración inmediatamente
