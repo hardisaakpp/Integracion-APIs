@@ -90,9 +90,6 @@ logs/
 *.log
 
 # Sensitive data - DO NOT COMMIT
-# Descomenta esta línea si quieres excluir config.json
-# config.json
-
-# Datos de prueba locales (descomenta si no quieres subirlos)
-# ventas.json
-# asistencias.json
+config.json
+ventas.json
+asistencias.json
