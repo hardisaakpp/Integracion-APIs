@@ -2,6 +2,26 @@
 
 Aplicación de integración automática con la API de Koach360 para envío de ventas y asistencias cada hora.
 
+## Instalación Rápida
+
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/hardisaakpp/Integracion-APIs.git
+cd Integracion-APIs
+
+# 2. Crear archivos de configuración desde las plantillas
+cp config.example.json config.json
+cp ventas.example.json ventas.json
+cp asistencias.example.json asistencias.json
+
+# 3. Editar config.json con tus credenciales reales
+nano config.json  # o usa tu editor favorito
+
+# 4. Compilar y ejecutar
+dotnet build
+dotnet run
+```
+
 ## Características
 
 ✅ **Autenticación automática** con renovación de token cada 50 minutos
@@ -17,13 +37,15 @@ Aplicación de integración automática con la API de Koach360 para envío de ve
 ## Configuración
 
 ### config.json
+Copia `config.example.json` a `config.json` y configura tus credenciales:
+
 ```json
 {
-  "usuario": "rolandpruebas-int",
-  "password": "nJ33gzwxC3GL",
-  "clienteId": 21,
-  "usuarioApi": "rolandpruebas-int",
-  "claveApi": "nJ33gzwxC3GL",
+  "usuario": "tu-usuario-koach360",
+  "password": "tu-password",
+  "clienteId": 0,
+  "usuarioApi": "tu-usuario-api",
+  "claveApi": "tu-clave-api",
   "intervaloHoras": 1,
   "baseUrl": "https://koach360.kliente.tech:5000",
   "logging": {
