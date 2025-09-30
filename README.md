@@ -1,53 +1,80 @@
 # IntegracionKoach360
 
-Aplicación de integración automática con la API de Koach360 para envío de ventas y asistencias cada hora.
+Aplicación de integración automática con la API de Koach360 para envío de ventas y asistencias desde SQL Server cada hora.
 
-## Instalación Rápida
+## 🎯 Características
 
-```bash
-# 1. Clonar el repositorio
-git clone https://github.com/hardisaakpp/Integracion-APIs.git
-cd Integracion-APIs
+✅ **Conexión directa a SQL Server** - Consulta datos en tiempo real  
+✅ **Autenticación automática** con renovación de token cada 50 minutos  
+✅ **Ejecución automática cada hora** (configurable)  
+✅ **Validación completa de datos** antes del envío  
+✅ **Logging detallado** con timestamps y rotación diaria  
+✅ **Manejo robusto de errores** con reintentos automáticos  
+✅ **Configuración externa** via `config.json`  
+✅ **Completado automático** de campos faltantes  
+✅ **Ejecución como servicio** en Linux con systemd  
+✅ **Monitoreo y mantenimiento** automatizado  
+✅ **Sin dependencia de archivos JSON** - Consulta directa a BD  
 
-# 2. Crear archivos de configuración desde las plantillas
-cp config.example.json config.json
-cp ventas.example.json ventas.json
-cp asistencias.example.json asistencias.json
+---
 
-# 3. Editar config.json con tus credenciales reales
-nano config.json  # o usa tu editor favorito
+## 📊 Arquitectura
 
-# 4. Compilar y ejecutar
-dotnet build
-dotnet run
+```
+┌─────────────────────────────────────────────────────────┐
+│                  FLUJO DE INTEGRACIÓN                    │
+└─────────────────────────────────────────────────────────┘
+
+SQL Server (10.10.100.12)
+    │  Bases de datos:
+    │  - Analitica (ventas)
+    │  - BISTAGING (empleados)
+    │  - ElRayoBiometricos (biométricos)
+    │  - BDDNOMINAMABEL19 (nómina)
+    │  - plataforma_web (datos web)
+    │
+    ▼ [Query SQL cada hora]
+    
+IntegracionKoach360 (.NET App)
+    │  - Consulta SQL Server
+    │  - Valida datos
+    │  - Completa campos
+    │  - Genera logs
+    │
+    ▼ [POST con JWT Token]
+    
+API Koach360 (koach360.kliente.tech:5000)
+    │  Endpoints:
+    │  - /api/Auth/login
+    │  - /api/Ventas/cargaVentasV1
+    │  - /api/AsistenciaReal/cargaAsistenciaRealV1
+    │
+    ▼
+    
+Dashboard Koach360 ✅
 ```
 
-## Características
+---
 
-✅ **Autenticación automática** con renovación de token cada 50 minutos
-✅ **Ejecución automática cada hora** (configurable)
-✅ **Validación completa de datos** antes del envío
-✅ **Logging detallado** con timestamps
-✅ **Manejo robusto de errores**
-✅ **Configuración externa** via `config.json`
-✅ **Completado automático** de campos faltantes
-✅ **Ejecución como servicio** en Linux
-✅ **Monitoreo y mantenimiento** automatizado
-
-## Configuración
+## ⚙️ Configuración
 
 ### config.json
-Copia `config.example.json` a `config.json` y configura tus credenciales:
 
 ```json
 {
   "usuario": "tu-usuario-koach360",
   "password": "tu-password",
-  "clienteId": 0,
+  "clienteId": 21,
   "usuarioApi": "tu-usuario-api",
   "claveApi": "tu-clave-api",
   "intervaloHoras": 1,
   "baseUrl": "https://koach360.kliente.tech:5000",
+  
+  "database": {
+    "connectionString": "Server=TU_SERVIDOR;Database=STORECONTROL;User Id=TU_USUARIO;Password=TU_PASSWORD;TrustServerCertificate=True;MultipleActiveResultSets=True;",
+    "commandTimeout": 120
+  },
+  
   "logging": {
     "nivelMinimo": "Information",
     "guardarEnArchivo": true,
@@ -60,92 +87,211 @@ Copia `config.example.json` a `config.json` y configura tus credenciales:
 }
 ```
 
-### ventas.json
-Archivo con las ventas del día en formato array JSON (se actualiza dinámicamente por el sistema externo):
-```json
-[
-  {
-    "asesorCedula": "1728662147",
-    "asesorCorreo": "vendedor@empresa.com",
-    "asesorNombre": "NOMBRE VENDEDOR",
-    "facturaHora": "21:11:00",
-    "facturaFecha": "2025-01-15",
-    "facturaNumero": "001-00012345",
-    "liderCedula": "1715033674",
-    "liderCorreo": "lider@empresa.com",
-    "liderNombre": "NOMBRE LIDER",
-    "localNombre": "TIENDA PRINCIPAL",
-    "valorTransaccion": 150.50,
-    "cantidadUnidades": 1,
-    "facturaOrigen": "FAC"
-  }
-]
-```
+### Parámetros de Configuración
 
-### asistencias.json
-Archivo con las asistencias del día en formato array JSON (se actualiza dinámicamente por el sistema externo):
-```json
-[
-  {
-    "asesorCedula": "1728662147",
-    "asesorNombre": "NOMBRE EMPLEADO",
-    "asesorCargo": "ASESOR DE VENTAS",
-    "asesorCorreo": "empleado@empresa.com",
-    "fecha": "20250115",
-    "hora": "08:00",
-    "localNombre": "TIENDA PRINCIPAL"
-  }
-]
-```
+| Parámetro | Descripción | Ejemplo |
+|-----------|-------------|---------|
+| `usuario` | Usuario para autenticación en Koach360 | `"rolandpruebas-int"` |
+| `password` | Contraseña para autenticación | `"password123"` |
+| `clienteId` | ID del cliente en Koach360 | `21` |
+| `usuarioApi` | Usuario API para ventas/asistencias | `"rolandpruebas-int"` |
+| `claveApi` | Clave API para ventas/asistencias | `"clave123"` |
+| `intervaloHoras` | Frecuencia de ejecución | `1` (cada hora) |
+| `baseUrl` | URL base de la API | `"https://koach360.kliente.tech:5000"` |
+| `database.connectionString` | Cadena de conexión a SQL Server | Ver ejemplo arriba |
+| `database.commandTimeout` | Timeout de consultas SQL (segundos) | `120` |
 
-## Uso
+---
+
+## 🚀 Uso
 
 ### Desarrollo
 
-#### Compilar
+#### 1. Configurar el proyecto
+
+```bash
+# Clonar el repositorio
+git clone https://github.com/hardisaakpp/Integracion-APIs.git
+cd Integracion-APIs
+
+# Configurar config.json con tus credenciales
+cp config.example.json config.json
+nano config.json  # Editar con tus datos
+```
+
+#### 2. Compilar
+
 ```bash
 dotnet build
 ```
 
-#### Ejecutar en modo desarrollo
+#### 3. Ejecutar en modo desarrollo
+
 ```bash
 dotnet run
 ```
 
+Presiona `q` para salir.
+
+---
+
 ### Producción (Servidor Linux)
 
-#### 1. Despliegue
+Ver **[DEPLOYMENT.md](DEPLOYMENT.md)** para instrucciones completas de despliegue.
+
+#### Resumen rápido:
+
 ```bash
-# Compilar para producción
-dotnet publish -c Release -r linux-x64 --self-contained
+# 1. Compilar para Linux
+dotnet publish -c Release -r linux-x64 --self-contained -o publish
 
-# Mover a directorio de producción
-sudo mv /ruta/origen/IntegracionKoach360 /storage/
+# 2. Copiar al servidor (WinSCP o SCP)
+#    - publish/IntegracionKoach360 → /storage/IntegracionKoach360/publish/
+#    - config.json (configurado) → /storage/IntegracionKoach360/publish/
 
-# Configurar permisos
-cd /storage/IntegracionKoach360
-sudo chmod +x IntegracionKoach360
-sudo chmod 644 *.json
-sudo mkdir -p logs
-sudo chmod 755 logs
+# 3. Configurar permisos
+sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360
+sudo chmod 600 /storage/IntegracionKoach360/publish/config.json
+
+# 4. Iniciar servicio
+sudo systemctl start integracion-koach360
+sudo systemctl status integracion-koach360
 ```
 
-#### 2. Ejecución Manual
-```bash
-# Ejecutar una vez
-cd /storage/IntegracionKoach360
-./IntegracionKoach360
+---
 
-# Ejecutar en background
-nohup ./IntegracionKoach360 > output.log 2>&1 &
+## 🗂️ Estructura de Archivos en Producción
 
-# Ver logs en tiempo real
-tail -f logs/integracion-koach360-$(date +%Y%m%d).log
+```
+/storage/IntegracionKoach360/publish/
+├── IntegracionKoach360          # Ejecutable principal
+├── config.json                  # Configuración (credenciales + connection string)
+├── *.dll                        # Dependencias .NET
+├── *.so                         # Librerías nativas Linux
+└── backups/                     # Backups de versiones anteriores
+    ├── IntegracionKoach360_YYYYMMDD_HHMMSS
+    └── config.json_YYYYMMDD_HHMMSS
+
+/storage/sc22/logs/integracion/
+└── integracion-koach360-YYYYMMDD.log  # Logs diarios (30 días de retención)
 ```
 
-#### 3. Ejecución como Servicio (Recomendado)
+---
 
-Crear archivo de servicio: `/etc/systemd/system/integracion-koach360.service`
+## 📋 Funcionalidades Implementadas
+
+### 1. **Consulta Directa a SQL Server**
+
+#### Ventas (Últimos 8 días):
+- Consulta: `Analitica..DWH_VENTASGENERAL_VIEW`
+- Join con: `BISTAGING..STG_EMPLEADOS`
+- Filtros:
+  - Tiendas: RL-PSC, RL-QSS2, RL-SCA
+  - Excluye vendedores: 114, 1150
+  - Fecha: Últimos 8 días (sin incluir hoy)
+
+#### Asistencias (Últimos 7 días):
+- Consulta: `ElRayoBiometricos.dbo.VistaRegistrosT`
+- Joins con:
+  - `BDDNOMINAMABEL19..Tbl_DatosPersonales`
+  - `plataforma_web.dbo.tmp_kliente`
+- Filtros:
+  - Cargos: ASESOR DE VENTAS, ASESOR VARIOS
+  - Solo empleados activos
+  - Solo con tienda asignada
+
+### 2. **Integración con Koach360**
+
+- **Endpoint Ventas:** `/api/Ventas/cargaVentasV1`
+- **Endpoint Asistencias:** `/api/AsistenciaReal/cargaAsistenciaRealV1`
+- **Autenticación:** JWT Bearer Token (renovación automática cada 50 min)
+- **Método:** POST con JSON
+
+### 3. **Validación y Completado de Datos**
+
+- Valida campos requeridos antes del envío
+- Completa `clienteId`, `usuarioApi`, `claveApi` automáticamente
+- Filtra registros con datos incompletos
+- Registra advertencias para datos rechazados
+
+### 4. **Ejecución Automática**
+
+- Timer configurable (cada 1 hora por defecto)
+- Ejecución inmediata al iniciar
+- Modo servicio (systemd) con auto-reinicio
+- Modo interactivo (desarrollo) con salida 'q'
+
+### 5. **Logging Avanzado**
+
+- Logs a archivo con rotación diaria
+- Logs a consola (systemd journal)
+- Niveles: Information, Warning, Error, Fatal
+- Retención: 30 días por defecto
+- Formato: `[YYYY-MM-DD HH:MM:SS] [LEVEL] Mensaje`
+
+---
+
+## 📝 Logs de Ejemplo
+
+```
+[2025-09-30 15:00:00] [INF] Iniciando IntegracionKoach360...
+[2025-09-30 15:00:00] [INF] Configuración cargada correctamente
+[2025-09-30 15:00:00] [INF] Intervalo de ejecución: cada 1 hora(s)
+[2025-09-30 15:00:00] [INF] ========================================
+[2025-09-30 15:00:00] [INF] Iniciando proceso de integración...
+[2025-09-30 15:00:00] [INF] Procesando ventas...
+[2025-09-30 15:00:00] [INF] Consulta de ventas ejecutada: 45 registros obtenidos
+[2025-09-30 15:00:00] [INF] Enviando 45 venta(s)...
+[2025-09-30 15:00:01] [INF] Token obtenido/renovado exitosamente
+[2025-09-30 15:00:02] [INF] Ventas enviadas exitosamente
+[2025-09-30 15:00:02] [INF] Respuesta: {
+  "mensaje": "Proceso completado.",
+  "ventasExitosas": 45,
+  "ventasFallidas": 0,
+  "errores": []
+}
+[2025-09-30 15:00:02] [INF] Procesando asistencias...
+[2025-09-30 15:00:02] [INF] Consulta de asistencias ejecutada: 27 registros obtenidos
+[2025-09-30 15:00:02] [INF] Enviando 27 asistencia(s)...
+[2025-09-30 15:00:03] [INF] Asistencias enviadas exitosamente
+[2025-09-30 15:00:03] [INF] Respuesta: {
+  "mensajes": [],
+  "estadisticas": {
+    "AsistenciasCreadas": 27,
+    "AsistenciasEliminadas": 0,
+    "AsistenciasActualizadas": 0,
+    "PersonasCreadas": 0,
+    "CargosCreados": 0
+  }
+}
+[2025-09-30 15:00:03] [INF] Proceso de integración completado exitosamente
+[2025-09-30 15:00:03] [INF] ========================================
+[2025-09-30 15:00:03] [INF] Timer configurado para ejecutar cada 1 hora(s)
+[2025-09-30 15:00:03] [INF] Aplicación ejecutándose como servicio...
+```
+
+---
+
+## 💻 Requisitos del Sistema
+
+### Desarrollo (Windows/Mac/Linux)
+- .NET 9.0 SDK
+- Visual Studio Code o Visual Studio
+- Acceso a SQL Server
+- Conexión a internet
+
+### Producción (Linux)
+- Sistema operativo Linux (Ubuntu 20.04+ recomendado)
+- Conexión a SQL Server (puerto 1433)
+- Conexión a internet (API Koach360)
+- Permisos de escritura en directorio de logs
+- **NO requiere** .NET Runtime (self-contained)
+
+---
+
+## 🔧 Configuración del Servicio Systemd
+
+Archivo: `/etc/systemd/system/integracion-koach360.service`
 
 ```ini
 [Unit]
@@ -155,8 +301,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/storage/IntegracionKoach360
-ExecStart=/storage/IntegracionKoach360/IntegracionKoach360
+WorkingDirectory=/storage/IntegracionKoach360/publish
+ExecStart=/storage/IntegracionKoach360/publish/IntegracionKoach360
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -166,21 +312,22 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-Comandos para gestionar el servicio:
+### Comandos de gestión del servicio:
+
 ```bash
-# Recargar configuración del sistema
+# Recargar configuración
 sudo systemctl daemon-reload
 
-# Habilitar el servicio
+# Habilitar inicio automático
 sudo systemctl enable integracion-koach360
 
 # Iniciar el servicio
 sudo systemctl start integracion-koach360
 
-# Ver estado del servicio
+# Ver estado
 sudo systemctl status integracion-koach360
 
-# Ver logs del servicio
+# Ver logs en tiempo real
 sudo journalctl -u integracion-koach360 -f
 
 # Detener el servicio
@@ -189,182 +336,266 @@ sudo systemctl stop integracion-koach360
 # Reiniciar el servicio
 sudo systemctl restart integracion-koach360
 
-# Para DESHABILITAR que inicie automáticamente al arrancar el servidor
+# Deshabilitar inicio automático
 sudo systemctl disable integracion-koach360
 ```
 
-#### 4. Monitoreo y Mantenimiento
+---
+
+## 📊 Datos Enviados
+
+### Ventas → `/api/Ventas/cargaVentasV1`
+
+**Origen:** `Analitica..DWH_VENTASGENERAL_VIEW` (últimos 8 días)
+
+**Campos enviados:**
+- Información de factura: número, fecha, hora, origen, valor, unidades
+- Información del vendedor: nombre, cédula, correo
+- Información del líder: nombre, cédula, correo
+- Información del local: nombre
+- Credenciales API: clienteId, usuarioApi, claveApi
+
+**Filtros aplicados:**
+- Tiendas: RL-PSC, RL-QSS2, RL-SCA
+- Excluye vendedores: 114, 1150
+
+### Asistencias → `/api/AsistenciaReal/cargaAsistenciaRealV1`
+
+**Origen:** `ElRayoBiometricos.dbo.VistaRegistrosT` (últimos 7 días)
+
+**Campos enviados:**
+- Información del empleado: nombre, cédula, cargo, correo
+- Información de asistencia: fecha, hora
+- Información del local: nombre
+- Credenciales API: clienteId, usuarioApi, claveApi
+
+**Filtros aplicados:**
+- Cargos: ASESOR DE VENTAS, ASESOR VARIOS
+- Solo empleados activos
+- Solo con tienda asignada
+
+---
+
+## 🛠️ Actualización de la Aplicación
+
+Ver **[DEPLOYMENT.md](DEPLOYMENT.md)** para instrucciones detalladas.
+
+### Resumen rápido:
 
 ```bash
-# Verificar que el proceso está ejecutándose
-ps aux | grep IntegracionKoach360
-
-# Ver logs más recientes
-tail -n 50 logs/integracion-koach360-$(date +%Y%m%d).log
-
-# Verificar espacio en disco
-df -h /storage/
-
-# Verificar conectividad con la API
-curl -X POST https://koach360.kliente.tech:5000/api/Auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"usuario":"rolandpruebas-int","password":"nJ33gzwxC3GL"}'
-```
-
-#### 5. Actualización de la Aplicación
-
-```bash
-# Detener el servicio
+# 1. Detener el servicio
 sudo systemctl stop integracion-koach360
 
-# Crear backup
-sudo cp -r /storage/IntegracionKoach360 /storage/IntegracionKoach360_backup_$(date +%Y%m%d_%H%M%S)
+# 2. Hacer backup
+sudo cp /storage/IntegracionKoach360/publish/IntegracionKoach360 \
+     /storage/IntegracionKoach360/backups/IntegracionKoach360_$(date +%Y%m%d_%H%M%S)
 
-# Reemplazar archivos (mantener config.json y logs)
-sudo cp nueva_version/IntegracionKoach360 /storage/IntegracionKoach360/
-sudo chmod +x /storage/IntegracionKoach360/IntegracionKoach360
+# 3. Copiar nuevo ejecutable (WinSCP)
+#    Origen: publish/IntegracionKoach360
+#    Destino: /storage/IntegracionKoach360/publish/
 
-# Iniciar el servicio
+# 4. Dar permisos
+sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360
+
+# 5. Iniciar el servicio
+sudo systemctl start integracion-koach360
+sudo journalctl -u integracion-koach360 -f
+```
+
+---
+
+## 🔍 Monitoreo y Mantenimiento
+
+### Verificar que el servicio está corriendo
+
+```bash
+# Estado del servicio
+sudo systemctl is-active integracion-koach360
+
+# Información detallada
+sudo systemctl status integracion-koach360
+
+# Ver proceso
+ps aux | grep IntegracionKoach360
+```
+
+### Ver logs
+
+```bash
+# Logs del servicio (systemd)
+sudo journalctl -u integracion-koach360 -f
+
+# Logs de la aplicación (archivo)
+tail -f /storage/sc22/logs/integracion/integracion-koach360-$(date +%Y%m%d).log
+
+# Últimas 100 líneas
+tail -n 100 /storage/sc22/logs/integracion/integracion-koach360-$(date +%Y%m%d).log
+
+# Buscar errores
+sudo journalctl -u integracion-koach360 | grep -i error
+```
+
+### Verificar conectividad
+
+```bash
+# Conectividad con API Koach360
+curl -X POST https://koach360.kliente.tech:5000/api/Auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"usuario":"tu-usuario","password":"tu-password"}'
+
+# Conectividad con SQL Server (desde el servidor Linux)
+# Requiere instalar sqlcmd: sudo apt install mssql-tools
+/opt/mssql-tools/bin/sqlcmd -S 10.10.100.12 -U consultas -P 'Datos.22' -Q "SELECT @@VERSION"
+```
+
+### Verificar espacio en disco
+
+```bash
+# Espacio en /storage
+df -h /storage/
+
+# Tamaño de logs
+du -sh /storage/sc22/logs/integracion/
+
+# Listar logs antiguos
+ls -lht /storage/sc22/logs/integracion/
+```
+
+---
+
+## 🆘 Solución de Problemas
+
+### Error: "No se pudo conectar a SQL Server"
+
+```bash
+# Verificar conectividad de red
+ping 10.10.100.12
+
+# Verificar puerto SQL (1433)
+telnet 10.10.100.12 1433
+
+# Ver error específico en logs
+sudo journalctl -u integracion-koach360 -n 50 | grep -A 5 "Error al consultar"
+```
+
+**Soluciones:**
+- Verificar firewall del servidor SQL Server
+- Verificar que SQL Server acepta conexiones remotas
+- Verificar usuario y contraseña en `config.json`
+
+### Error: "Token obtenido/renovado exitosamente" no aparece
+
+```bash
+# Verificar conectividad con API
+curl -v https://koach360.kliente.tech:5000/api/Auth/login
+
+# Ver logs de error
+sudo journalctl -u integracion-koach360 | grep -A 5 "Error al obtener token"
+```
+
+**Soluciones:**
+- Verificar credenciales en `config.json`
+- Verificar que la URL es correcta
+- Verificar firewall/proxy
+
+### Error: "Consulta de ventas ejecutada: 0 registros"
+
+**Posibles causas:**
+- No hay datos en el rango de fechas (últimos 8 días)
+- Filtros muy restrictivos (solo 3 tiendas)
+- Problema con la consulta SQL
+
+```bash
+# Ver logs detallados
+tail -100 /storage/sc22/logs/integracion/integracion-koach360-$(date +%Y%m%d).log
+```
+
+### Error: El servicio no inicia
+
+```bash
+# Ver error completo
+sudo journalctl -u integracion-koach360 -xe
+
+# Probar ejecutar manualmente
+cd /storage/IntegracionKoach360/publish
+./IntegracionKoach360
+
+# Verificar permisos
+ls -la /storage/IntegracionKoach360/publish/IntegracionKoach360
+```
+
+### Restaurar versión anterior (Rollback)
+
+```bash
+# Detener servicio
+sudo systemctl stop integracion-koach360
+
+# Listar backups disponibles
+ls -lht /storage/IntegracionKoach360/backups/
+
+# Restaurar versión anterior
+sudo cp /storage/IntegracionKoach360/backups/IntegracionKoach360_YYYYMMDD_HHMMSS \
+     /storage/IntegracionKoach360/publish/IntegracionKoach360
+
+# Dar permisos
+sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360
+
+# Iniciar servicio
 sudo systemctl start integracion-koach360
 ```
 
-La aplicación:
-1. **Se ejecuta inmediatamente** al iniciar
-2. **Configura un timer** para ejecutarse cada hora (configurable)
-3. **Se mantiene en ejecución** hasta presionar 'q' (desarrollo) o se detiene el servicio (producción)
-4. **Procesa automáticamente** ventas y asistencias
+---
 
-## Funcionalidades Implementadas
+## 📦 Tecnologías Utilizadas
 
-### ✅ Requerimientos Cumplidos
+- **.NET 9.0** - Framework principal
+- **Microsoft.Data.SqlClient** - Conexión a SQL Server
+- **Serilog** - Logging estructurado
+- **System.Net.Http** - Cliente HTTP para API
+- **System.Text.Json** - Serialización JSON
+- **Systemd** - Gestión de servicios en Linux
 
-1. **Autenticación con Koach360**
-   - Endpoint: `/api/Auth/login`
-   - Credenciales configurables
-   - Renovación automática de token
+---
 
-2. **Integración de Ventas**
-   - Endpoint: `/api/Ventas/cargaVentasV1`
-   - Validación completa de datos
-   - Campos auto-completados desde configuración
+## 📚 Documentación Adicional
 
-3. **Integración de Asistencias**
-   - Endpoint: `/api/AsistenciaReal/cargaAsistenciaRealV1`
-   - Validación completa de datos
-   - Campos auto-completados desde configuración
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Guía completa de despliegue paso a paso
+- **[CHANGELOG.md](CHANGELOG.md)** - Historial de cambios y versiones
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Documentación técnica de la arquitectura
 
-4. **Ejecución Automática**
-   - Timer configurable (cada 1 hora por defecto)
-   - Ejecución inmediata al iniciar
-   - Renovación automática de token
+---
 
-5. **Manejo de Errores**
-   - Logging detallado con timestamps
-   - Validación de datos antes del envío
-   - Manejo graceful de errores de red
+## 🔐 Seguridad
 
-6. **Configuración Externa**
-   - Archivo `config.json` para credenciales
-   - No más credenciales hardcodeadas
-   - Configuración del intervalo de ejecución
+- Credenciales almacenadas en `config.json` (excluido de Git)
+- Connection string protegido (permisos 600)
+- TrustServerCertificate para SSL/TLS
+- Token JWT con renovación automática
+- Logs sin información sensible
 
-## Logs de Ejemplo
+---
 
-```
-[2025-01-15 10:00:00] Iniciando IntegracionKoach360...
-[2025-01-15 10:00:00] Configuración cargada correctamente
-[2025-01-15 10:00:00] Intervalo de ejecución: cada 1 hora(s)
-[2025-01-15 10:00:00] ========================================
-[2025-01-15 10:00:00] Iniciando proceso de integración...
-[2025-01-15 10:00:00] Autenticando en: https://koach360.kliente.tech:5000/api/Auth/login
-[2025-01-15 10:00:01] Token obtenido/renovado exitosamente
-[2025-01-15 10:00:01] Procesando ventas...
-[2025-01-15 10:00:01] Enviando 1 venta(s)...
-[2025-01-15 10:00:02] Ventas enviadas exitosamente
-[2025-01-15 10:00:02] Procesando asistencias...
-[2025-01-15 10:00:02] Enviando 1 asistencia(s)...
-[2025-01-15 10:00:03] Asistencias enviadas exitosamente
-[2025-01-15 10:00:03] Proceso de integración completado exitosamente
-[2025-01-15 10:00:03] ========================================
-```
+## 📞 Soporte
 
-## Requisitos del Sistema
+Para problemas o preguntas:
+1. Revisar los logs: `sudo journalctl -u integracion-koach360 -f`
+2. Verificar [DEPLOYMENT.md](DEPLOYMENT.md) para guías de solución de problemas
+3. Consultar el código fuente en: https://github.com/hardisaakpp/Integracion-APIs
 
-### Desarrollo
-- .NET 9.0 SDK
-- Visual Studio Code o Visual Studio
-- Conexión a internet
+---
 
-### Producción
-- .NET 9.0 Runtime (o aplicación self-contained)
-- Linux (Ubuntu 20.04+ recomendado)
-- Conexión a internet
-- Archivos `config.json`, `ventas.json`, `asistencias.json` en el directorio de ejecución
-- Permisos de escritura en directorio de logs
+## 📄 Licencia
 
-## Estructura de Archivos en Producción
+Proyecto privado - Uso interno únicamente.
 
-```
-/storage/IntegracionKoach360/
-├── IntegracionKoach360          # Ejecutable principal
-├── config.json                  # Configuración de la aplicación
-├── ventas.json                  # Datos de ventas (se actualiza dinámicamente)
-├── asistencias.json             # Datos de asistencias (se actualiza dinámicamente)
-├── logs/                        # Directorio de logs
-│   └── integracion-koach360-YYYYMMDD.log
-└── IntegracionKoach360.deps.json
-```
+---
 
-## Notas Importantes
+## 🎯 Notas Importantes
 
-- La aplicación valida todos los campos requeridos antes del envío
-- Los campos faltantes (`clienteId`, `usuarioApi`, `claveApi`) se completan automáticamente desde `config.json`
-- El token se renueva automáticamente cada 50 minutos
-- La aplicación registra todos los eventos con timestamps detallados
-- En modo desarrollo: presionar 'q' para salir de la aplicación
-- En producción: usar `systemctl` para gestionar el servicio
-- Los archivos `ventas.json` y `asistencias.json` deben ser actualizados por el sistema externo
-- Los logs se rotan automáticamente cada día y se mantienen por 30 días
-
-## Solución de Problemas
-
-### Error de Conectividad
-```bash
-# Verificar conectividad
-ping koach360.kliente.tech
-
-# Verificar puerto
-telnet koach360.kliente.tech 5000
-```
-
-### Error de Permisos
-```bash
-# Verificar permisos
-ls -la /storage/IntegracionKoach360/
-
-# Corregir permisos
-sudo chmod +x /storage/IntegracionKoach360/IntegracionKoach360
-sudo chmod 644 /storage/IntegracionKoach360/*.json
-```
-
-### Error de Dependencias
-```bash
-# Verificar dependencias
-ldd /storage/IntegracionKoach360/IntegracionKoach360
-
-# Instalar dependencias si es necesario
-sudo apt-get update
-sudo apt-get install libc6 libgcc1 libstdc++6
-```
-
-### Verificar Estado del Servicio
-```bash
-# Ver estado
-sudo systemctl status integracion-koach360
-
-# Ver logs
-sudo journalctl -u integracion-koach360 -f
-
-# Reiniciar si es necesario
-sudo systemctl restart integracion-koach360
-```
+- ⚠️ **NO subir `config.json` a Git** - Contiene credenciales sensibles
+- ⚠️ **Hacer backup antes de actualizar** - Usa los scripts de despliegue
+- ⚠️ **Monitorear logs regularmente** - Detectar problemas temprano
+- ⚠️ **Verificar espacio en disco** - Los logs pueden crecer
+- ✅ **El servicio se reinicia automáticamente** si falla
+- ✅ **Los logs se rotan automáticamente** cada día
+- ✅ **La aplicación es independiente** - No requiere .NET instalado (self-contained)
