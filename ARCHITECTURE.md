@@ -61,10 +61,86 @@ IntegracionKoach360/
    ↓
 4. IntegrationService → Orquesta el proceso
    ↓
-5. DataService → Lee y valida datos JSON
+5. DatabaseService → Consulta SQL Server
    ↓
-6. ApiService → Envía datos a Koach360 API
+6. DataService → Valida y completa datos
+   ↓
+7. ApiService → Envía datos a Koach360 API
 ```
+
+## 🔄 Comportamiento de la API Koach360
+
+### **Estrategia de Sincronización: DELETE + INSERT**
+
+La API de Koach360 implementa una estrategia de **reemplazo selectivo** en cada integración:
+
+```sql
+-- La API ejecuta internamente:
+1. DELETE FROM ventas 
+   WHERE cliente_id = X
+     AND fecha IN (fechas del payload)
+     AND local IN (locales del payload)
+
+2. INSERT INTO ventas VALUES (payload completo)
+```
+
+### **Implicaciones del Diseño**
+
+#### ✅ **Ventajas:**
+- **Datos históricos protegidos**: Solo se eliminan/actualizan fechas y locales específicos del payload
+- **Sincronización incremental por fecha**: Cada fecha se puede actualizar independientemente
+- **Sin duplicados**: La API garantiza que no habrá registros duplicados
+- **Tolerante a fallos**: Si una ejecución falla, la siguiente reemplaza los datos completos
+
+#### ⚠️ **Consideraciones:**
+- **Se debe enviar el día completo**: Cada ejecución debe incluir TODAS las ventas del día hasta la hora actual
+- **No enviar solo la última hora**: Esto eliminaría las ventas de horas anteriores del día
+- **Consulta acumulativa**: La query SQL debe retornar datos desde las 00:00 hasta la hora de ejecución
+
+### **Ejemplo de Funcionamiento**
+
+**Ejecución a las 09:00:**
+```json
+Payload: [
+  { "fecha": "20251001", "local": "RL-PSC", ... },  // 5 ventas
+  { "fecha": "20251001", "local": "RL-QSS2", ... }  // 8 ventas
+]
+
+API ejecuta:
+  DELETE WHERE fecha='20251001' AND local IN ('RL-PSC', 'RL-QSS2')
+  INSERT 13 ventas nuevas
+```
+
+**Ejecución a las 10:00:**
+```json
+Payload: [
+  { "fecha": "20251001", "local": "RL-PSC", ... },  // 10 ventas (00:00-10:00)
+  { "fecha": "20251001", "local": "RL-QSS2", ... }  // 15 ventas (00:00-10:00)
+]
+
+API ejecuta:
+  DELETE WHERE fecha='20251001' AND local IN ('RL-PSC', 'RL-QSS2')
+  INSERT 25 ventas nuevas (reemplaza las 13 anteriores)
+```
+
+**Resultado:** Los datos en Koach360 siempre reflejan el día completo hasta la última ejecución.
+
+### **Diseño de Consultas SQL**
+
+Debido a este comportamiento, las consultas deben ser **acumulativas por día**:
+
+#### ✅ **CORRECTO - Consulta Actual:**
+```sql
+WHERE V.Fecha = CAST(GETDATE() AS DATE)           -- Solo HOY
+  AND V.Hora <= CONVERT(TIME, GETDATE())           -- Hasta AHORA
+```
+**Resultado:** Cada ejecución envía todo el día acumulado (00:00 hasta hora actual)
+
+#### ❌ **INCORRECTO - Solo última hora:**
+```sql
+WHERE V.Hora >= DATEADD(HOUR, -1, GETDATE())  -- Solo última hora
+```
+**Problema:** La API eliminaría las ventas de horas anteriores del día
 
 ## ✨ Beneficios de la Nueva Arquitectura
 

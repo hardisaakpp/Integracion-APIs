@@ -5,85 +5,85 @@ namespace IntegracionKoach360.Models
 {
     public class VentaData
     {
-        [JsonPropertyName("asesor_cedula")]
+        [JsonPropertyName("AsesorCedula")]
         [Required] public string asesorCedula { get; set; } = string.Empty;
         
-        [JsonPropertyName("asesor_correo")]
+        [JsonPropertyName("AsesorCorreo")]
         [Required] public string asesorCorreo { get; set; } = string.Empty;
         
-        [JsonPropertyName("asesor_nombre")]
+        [JsonPropertyName("AsesorNombre")]
         [Required] public string asesorNombre { get; set; } = string.Empty;
         
-        [JsonPropertyName("clave_api")]
+        [JsonPropertyName("ClaveApi")]
         [Required] public string claveApi { get; set; } = string.Empty;
         
-        [JsonPropertyName("cliente_id")]
+        [JsonPropertyName("ClienteId")]
         [Required] public int clienteId { get; set; }
         
-        [JsonPropertyName("factura_fecha")]
-        [Required] public string facturaFecha { get; set; } = string.Empty;
+        [JsonPropertyName("FacturaFecha")]
+        [Required] public DateTime facturaFecha { get; set; }
         
-        [JsonPropertyName("factura_hora")]
-        [Required] public string facturaHora { get; set; } = string.Empty;
+        [JsonPropertyName("FacturaHora")]
+        [Required] public TimeSpan facturaHora { get; set; }
         
-        [JsonPropertyName("factura_numero")]
+        [JsonPropertyName("FacturaNumero")]
         [Required] public string facturaNumero { get; set; } = string.Empty;
         
-        [JsonPropertyName("lider_cedula")]
+        [JsonPropertyName("LiderCedula")]
         [Required] public string liderCedula { get; set; } = string.Empty;
         
-        [JsonPropertyName("factura_origen")]
+        [JsonPropertyName("FacturaOrigen")]
         [Required] public string facturaOrigen { get; set; } = string.Empty;
         
-        [JsonPropertyName("lider_correo")]
+        [JsonPropertyName("LiderCorreo")]
         [Required] public string liderCorreo { get; set; } = string.Empty;
         
-        [JsonPropertyName("lider_nombre")]
+        [JsonPropertyName("LiderNombre")]
         [Required] public string liderNombre { get; set; } = string.Empty;
         
-        [JsonPropertyName("local_nombre")]
+        [JsonPropertyName("LocalNombre")]
         [Required] public string localNombre { get; set; } = string.Empty;
         
-        [JsonPropertyName("usuario_api")]
+        [JsonPropertyName("UsuarioApi")]
         [Required] public string usuarioApi { get; set; } = string.Empty;
         
-        [JsonPropertyName("valor_transaccion")]
+        [JsonPropertyName("ValorTransaccion")]
         [Required] public decimal valorTransaccion { get; set; }
         
-        [JsonPropertyName("cantidad_unidades")]
+        [JsonPropertyName("CantidadUnidades")]
         [Required] public int cantidadUnidades { get; set; }
     }
 
     public class AsistenciaData
     {
-        [JsonPropertyName("cliente_id")]
+        [JsonPropertyName("ClienteId")]
         [Required] public int clienteId { get; set; }
         
-        [JsonPropertyName("asesor_nombre")]
+        [JsonPropertyName("AsesorNombre")]
         [Required] public string asesorNombre { get; set; } = string.Empty;
         
-        [JsonPropertyName("asesor_cedula")]
+        [JsonPropertyName("AsesorCedula")]
         [Required] public string asesorCedula { get; set; } = string.Empty;
         
-        [JsonPropertyName("asesor_cargo")]
+        [JsonPropertyName("AsesorCargo")]
         [Required] public string asesorCargo { get; set; } = string.Empty;
         
-        [JsonPropertyName("asesor_correo")]
+        [JsonPropertyName("AsesorCorreo")]
         [Required] public string asesorCorreo { get; set; } = string.Empty;
         
-        [JsonPropertyName("fecha")]
+        [JsonPropertyName("Fecha")]
         [Required] public string fecha { get; set; } = string.Empty;
         
-        [JsonPropertyName("hora")]
+        [JsonPropertyName("Hora")]
         [Required] public string hora { get; set; } = string.Empty;
         
-        [JsonPropertyName("local_nombre")]
+        [JsonPropertyName("LocalNombre")]
         [Required] public string localNombre { get; set; } = string.Empty;
         
-        [JsonPropertyName("usuario_api")]
+        [JsonPropertyName("UsuarioApi")]
         [Required] public string usuarioApi { get; set; } = string.Empty;
         
-        [JsonPropertyName("clave_api")]
+        [JsonPropertyName("ClaveApi")]
         [Required] public string claveApi { get; set; } = string.Empty;
     }
 }

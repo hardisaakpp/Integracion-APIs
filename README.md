@@ -182,20 +182,22 @@ sudo systemctl status integracion-koach360
 
 ### 1. **Consulta Directa a SQL Server**
 
-#### Ventas (Últimos 8 días):
-- Consulta: `Analitica..DWH_VENTASGENERAL_VIEW`
-- Join con: `BISTAGING..STG_EMPLEADOS`
-- Filtros:
+#### Ventas (Día Actual - Actualización Horaria):
+- **Consulta:** `Analitica..DWH_VENTASGENERAL_VIEW`
+- **Join con:** `BISTAGING..STG_EMPLEADOS`
+- **Filtros:**
   - Tiendas: RL-PSC, RL-QSS2, RL-SCA
   - Excluye vendedores: 114, 1150
-  - Fecha: Últimos 8 días (sin incluir hoy)
+  - Fecha: Solo día actual (`V.Fecha = CAST(GETDATE() AS DATE)`)
+  - Hora: Hasta la hora de ejecución (`V.Hora <= CONVERT(TIME, GETDATE())`)
+- **Comportamiento:** Cada ejecución obtiene todas las ventas del día desde las 00:00 hasta la hora actual
 
 #### Asistencias (Últimos 7 días):
-- Consulta: `ElRayoBiometricos.dbo.VistaRegistrosT`
-- Joins con:
+- **Consulta:** `ElRayoBiometricos.dbo.VistaRegistrosT`
+- **Joins con:**
   - `BDDNOMINAMABEL19..Tbl_DatosPersonales`
   - `plataforma_web.dbo.tmp_kliente`
-- Filtros:
+- **Filtros:**
   - Cargos: ASESOR DE VENTAS, ASESOR VARIOS
   - Solo empleados activos
   - Solo con tienda asignada
@@ -206,6 +208,31 @@ sudo systemctl status integracion-koach360
 - **Endpoint Asistencias:** `/api/AsistenciaReal/cargaAsistenciaRealV1`
 - **Autenticación:** JWT Bearer Token (renovación automática cada 50 min)
 - **Método:** POST con JSON
+
+#### 🔄 **Comportamiento de Sincronización de la API:**
+
+La API de Koach360 implementa una estrategia de **DELETE selectivo + INSERT** en cada integración:
+
+```
+1. DELETE: Elimina solo las ventas de las FECHAS y LOCALES que vienen en el payload
+2. INSERT: Inserta todos los registros del payload
+
+Ejemplo:
+- Si envías ventas del 2025-10-01 de locales RL-PSC y RL-QSS2
+- La API elimina SOLO las ventas de esa fecha y esos locales
+- Las ventas de fechas anteriores o de otros locales NO se tocan
+```
+
+**Esto significa que:**
+- ✅ **Datos históricos seguros**: Ventas de días anteriores permanecen intactos
+- ✅ **Actualización por día**: Cada día se puede actualizar independientemente
+- ✅ **Sin duplicados**: La API garantiza integridad de datos
+- ✅ **Tolerante a fallos**: Si una ejecución falla, la siguiente recupera todo el día
+
+**Por qué enviamos todo el día cada hora:**
+- La consulta retorna todas las ventas del día (00:00 hasta hora actual)
+- Cada hora, la API elimina y reemplaza las ventas del día con datos actualizados
+- Esto asegura que nunca falten ventas de horas anteriores del mismo día
 
 ### 3. **Validación y Completado de Datos**
 
@@ -346,7 +373,7 @@ sudo systemctl disable integracion-koach360
 
 ### Ventas → `/api/Ventas/cargaVentasV1`
 
-**Origen:** `Analitica..DWH_VENTASGENERAL_VIEW` (últimos 8 días)
+**Origen:** `Analitica..DWH_VENTASGENERAL_VIEW` (día actual hasta hora de ejecución)
 
 **Campos enviados:**
 - Información de factura: número, fecha, hora, origen, valor, unidades
@@ -356,8 +383,16 @@ sudo systemctl disable integracion-koach360
 - Credenciales API: clienteId, usuarioApi, claveApi
 
 **Filtros aplicados:**
+- Fecha: Solo día actual (`V.Fecha = CAST(GETDATE() AS DATE)`)
+- Hora: Hasta la hora de ejecución (`V.Hora <= CONVERT(TIME, GETDATE())`)
 - Tiendas: RL-PSC, RL-QSS2, RL-SCA
 - Excluye vendedores: 114, 1150
+
+**Comportamiento por ejecución:**
+- 09:00 → Envía ventas de 00:00 a 09:00
+- 10:00 → Envía ventas de 00:00 a 10:00 (actualiza en la API)
+- 11:00 → Envía ventas de 00:00 a 11:00 (actualiza en la API)
+- etc.
 
 ### Asistencias → `/api/AsistenciaReal/cargaAsistenciaRealV1`
 
@@ -501,8 +536,9 @@ sudo journalctl -u integracion-koach360 | grep -A 5 "Error al obtener token"
 ### Error: "Consulta de ventas ejecutada: 0 registros"
 
 **Posibles causas:**
-- No hay datos en el rango de fechas (últimos 8 días)
-- Filtros muy restrictivos (solo 3 tiendas)
+- No hay ventas en el día actual hasta la hora de ejecución
+- Filtros muy restrictivos (solo 3 tiendas: RL-PSC, RL-QSS2, RL-SCA)
+- Hora de ejecución muy temprana (antes de que haya ventas)
 - Problema con la consulta SQL
 
 ```bash

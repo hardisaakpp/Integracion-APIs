@@ -88,7 +88,7 @@ namespace IntegracionKoach360.Services
             return !string.IsNullOrEmpty(venta.asesorCedula) &&
                    !string.IsNullOrEmpty(venta.asesorNombre) &&
                    !string.IsNullOrEmpty(venta.facturaNumero) &&
-                   !string.IsNullOrEmpty(venta.facturaFecha) &&
+                   venta.facturaFecha != DateTime.MinValue &&
                    !string.IsNullOrEmpty(venta.localNombre) &&
                    !string.IsNullOrEmpty(venta.usuarioApi) &&
                    !string.IsNullOrEmpty(venta.claveApi) &&
@@ -193,8 +193,8 @@ namespace IntegracionKoach360.Services
                     ventas.Add(new VentaData
                     {
                         facturaNumero = reader["factura_numero"].ToString() ?? string.Empty,
-                        facturaFecha = reader["factura_fecha"].ToString() ?? string.Empty,
-                        facturaHora = reader["factura_hora"].ToString() ?? string.Empty,
+                        facturaFecha = DateTime.ParseExact(reader["factura_fecha"].ToString() ?? "", "yyyyMMdd", null),
+                        facturaHora = TimeSpan.Parse(reader["factura_hora"].ToString() ?? "00:00:00"),
                         facturaOrigen = reader["factura_origen"].ToString() ?? string.Empty,
                         asesorNombre = reader["asesor_nombre"].ToString() ?? string.Empty,
                         asesorCedula = reader["asesor_cedula"].ToString() ?? string.Empty,
@@ -213,6 +213,27 @@ namespace IntegracionKoach360.Services
                 }
 
                 _loggingService.Information("Consulta de ventas ejecutada: {Count} registros obtenidos", ventas.Count);
+
+
+                // LOG TEMPORAL
+                var ventasConProblemas = ventas.Where(v => 
+                    v.clienteId == 0 || 
+                    string.IsNullOrEmpty(v.liderNombre) || 
+                    string.IsNullOrEmpty(v.liderCedula) ||
+                    string.IsNullOrEmpty(v.liderCorreo)
+                ).ToList();
+                
+                if (ventasConProblemas.Any())
+                {
+                    _loggingService.Warning("Se encontraron {Count} ventas con datos incompletos", ventasConProblemas.Count);
+                    foreach (var venta in ventasConProblemas.Take(5))
+                    {
+                        _loggingService.Warning("Venta problemática: Factura={Factura}, ClienteId={ClienteId}, Lider={Lider}, LiderCedula={LiderCedula}, LiderCorreo={LiderCorreo}",
+                            venta.facturaNumero, venta.clienteId, venta.liderNombre, venta.liderCedula, venta.liderCorreo);
+                    }
+                }
+                // FIN LOG TEMPORAL
+
                 return ventas.ToArray();
             }
             catch (Exception ex)

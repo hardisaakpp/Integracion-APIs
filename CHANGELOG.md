@@ -1,5 +1,36 @@
 # Changelog - IntegracionKoach360
 
+## [1.2.0] - 2025-10-01
+
+### 🔄 Changed
+- **BREAKING CHANGE**: Consulta de ventas ahora retorna solo el día actual hasta la hora de ejecución
+  - **Antes:** `V.Fecha >= DATEADD(DAY, -8, CAST(GETDATE() AS DATE)) AND V.Fecha < CAST(GETDATE() AS DATE)`
+  - **Ahora:** `V.Fecha = CAST(GETDATE() AS DATE) AND V.Hora <= CONVERT(TIME, GETDATE())`
+- Comportamiento optimizado para envío horario de ventas del día en curso
+
+### 📚 Documentation
+- Documentado comportamiento de DELETE selectivo de la API Koach360
+- Agregada explicación de por qué se envía el día completo en cada ejecución
+- Actualizada arquitectura con detalles de sincronización
+- Documentado que la API elimina solo fechas/locales específicos del payload
+
+### 🎯 Rationale
+La API de Koach360 implementa DELETE selectivo:
+```sql
+DELETE FROM ventas 
+WHERE cliente_id = X 
+  AND fecha IN (fechas del payload) 
+  AND local IN (locales del payload)
+```
+
+Esto significa:
+- ✅ Datos históricos (días anteriores) permanecen intactos
+- ✅ Cada ejecución debe enviar el día completo (00:00 hasta hora actual)
+- ✅ NO se debe enviar solo la última hora (eliminaría ventas de horas anteriores)
+- ✅ Diseño actual es correcto y necesario
+
+---
+
 ## [1.1.0] - 2025-09-30
 
 ### ✨ Added
