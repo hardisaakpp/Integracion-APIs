@@ -213,27 +213,6 @@ namespace IntegracionKoach360.Services
                 }
 
                 _loggingService.Information("Consulta de ventas ejecutada: {Count} registros obtenidos", ventas.Count);
-
-
-                // LOG TEMPORAL
-                var ventasConProblemas = ventas.Where(v => 
-                    v.clienteId == 0 || 
-                    string.IsNullOrEmpty(v.liderNombre) || 
-                    string.IsNullOrEmpty(v.liderCedula) ||
-                    string.IsNullOrEmpty(v.liderCorreo)
-                ).ToList();
-                
-                if (ventasConProblemas.Any())
-                {
-                    _loggingService.Warning("Se encontraron {Count} ventas con datos incompletos", ventasConProblemas.Count);
-                    foreach (var venta in ventasConProblemas.Take(5))
-                    {
-                        _loggingService.Warning("Venta problemática: Factura={Factura}, ClienteId={ClienteId}, Lider={Lider}, LiderCedula={LiderCedula}, LiderCorreo={LiderCorreo}",
-                            venta.facturaNumero, venta.clienteId, venta.liderNombre, venta.liderCedula, venta.liderCorreo);
-                    }
-                }
-                // FIN LOG TEMPORAL
-
                 return ventas.ToArray();
             }
             catch (Exception ex)
@@ -264,7 +243,7 @@ namespace IntegracionKoach360.Services
                     asesor_nombre   = k.kli_txt_nombre,
                     asesor_cedula   = k.kli_txt_cedula,
                     asesor_cargo    = k.kli_txt_cargo,
-                    asesor_correo   = ISNULL(k.kli_txt_correo, 'nomail@kliente.com'),
+                    asesor_correo   = '',
                     fecha           = CONVERT(VARCHAR, A.Fecha, 112),
                     hora            = CONVERT(VARCHAR, A.Hora, 108),
                     local_nombre    = k.kli_txt_tienda

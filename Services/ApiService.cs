@@ -86,12 +86,6 @@ namespace IntegracionKoach360.Services
                 }
 
                 var json = JsonSerializer.Serialize(ventas, new JsonSerializerOptions { WriteIndented = false });
-
-                // LOG TEMPORAL
-                _loggingService.Information("JSON a enviar (primeros 2000 caracteres): {Json}", 
-                    json.Length > 2000 ? json.Substring(0, 2000) + "..." : json);
-                // FIN LOG TEMPORAL
-
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 using var request = new HttpRequestMessage(HttpMethod.Post, $"{_config.baseUrl}/api/Ventas/cargaVentasV1");
