@@ -71,7 +71,12 @@ namespace IntegracionKoach360.Services
                 }
                 else
                 {
-                    _loggingService.Warning("Asistencia inválida - Asesor: {AsesorNombre}", asistencia.asesorNombre);
+                    _loggingService.Warning("Asistencia inválida - Nombre: {Nombre}, Cédula: {Cedula}, Cargo: {Cargo}, Local: {Local}, Correo: {Correo}", 
+                        asistencia.asesorNombre ?? "NULL", 
+                        asistencia.asesorCedula ?? "NULL",
+                        asistencia.asesorCargo ?? "NULL",
+                        asistencia.localNombre ?? "NULL",
+                        asistencia.asesorCorreo ?? "NULL");
                 }
             }
 
@@ -85,6 +90,8 @@ namespace IntegracionKoach360.Services
                    !string.IsNullOrEmpty(venta.facturaNumero) &&
                    !string.IsNullOrEmpty(venta.facturaFecha) &&
                    !string.IsNullOrEmpty(venta.localNombre) &&
+                   !string.IsNullOrEmpty(venta.usuarioApi) &&
+                   !string.IsNullOrEmpty(venta.claveApi) &&
                    venta.clienteId > 0 &&
                    venta.valorTransaccion > 0;
         }
@@ -93,9 +100,13 @@ namespace IntegracionKoach360.Services
         {
             return !string.IsNullOrEmpty(asistencia.asesorCedula) &&
                    !string.IsNullOrEmpty(asistencia.asesorNombre) &&
+                   !string.IsNullOrEmpty(asistencia.asesorCargo) &&
+                   !string.IsNullOrEmpty(asistencia.asesorCorreo) &&
                    !string.IsNullOrEmpty(asistencia.fecha) &&
                    !string.IsNullOrEmpty(asistencia.hora) &&
                    !string.IsNullOrEmpty(asistencia.localNombre) &&
+                   !string.IsNullOrEmpty(asistencia.usuarioApi) &&
+                   !string.IsNullOrEmpty(asistencia.claveApi) &&
                    asistencia.clienteId > 0;
         }
     }
@@ -158,8 +169,8 @@ namespace IntegracionKoach360.Services
                 LEFT JOIN BISTAGING..STG_EMPLEADOS E 
                     ON V.CodVendedor = E.CodVendedor AND E.IdEmpresa = 1
                 WHERE
-                    V.Fecha >= DATEADD(DAY, -8, CAST(GETDATE() AS DATE))
-                    AND V.Fecha < CAST(GETDATE() AS DATE)
+                    V.Fecha = CAST(GETDATE() AS DATE)
+                    AND V.Hora <= CONVERT(TIME, GETDATE())
                     AND V.CodVendedor NOT IN ('114', '1150')
                     AND V.CodTienda IN ('RL-PSC', 'RL-QSS2', 'RL-SCA')
                 ORDER BY
@@ -232,7 +243,7 @@ namespace IntegracionKoach360.Services
                     asesor_nombre   = k.kli_txt_nombre,
                     asesor_cedula   = k.kli_txt_cedula,
                     asesor_cargo    = k.kli_txt_cargo,
-                    asesor_correo   = '',
+                    asesor_correo   = ISNULL(k.kli_txt_correo, 'nomail@kliente.com'),
                     fecha           = CONVERT(VARCHAR, A.Fecha, 112),
                     hora            = CONVERT(VARCHAR, A.Hora, 108),
                     local_nombre    = k.kli_txt_tienda
@@ -264,12 +275,18 @@ namespace IntegracionKoach360.Services
                 
                 while (await reader.ReadAsync())
                 {
+                    var correo = reader["asesor_correo"].ToString() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(correo))
+                    {
+                        correo = "nomail@kliente.com";
+                    }
+
                     asistencias.Add(new AsistenciaData
                     {
                         asesorNombre = reader["asesor_nombre"].ToString() ?? string.Empty,
                         asesorCedula = reader["asesor_cedula"].ToString() ?? string.Empty,
                         asesorCargo = reader["asesor_cargo"].ToString() ?? string.Empty,
-                        asesorCorreo = reader["asesor_correo"].ToString() ?? string.Empty,
+                        asesorCorreo = correo,
                         fecha = reader["fecha"].ToString() ?? string.Empty,
                         hora = reader["hora"].ToString() ?? string.Empty,
                         localNombre = reader["local_nombre"].ToString() ?? string.Empty,
