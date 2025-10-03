@@ -1,23 +1,57 @@
 # Guía de Despliegue - IntegracionKoach360
 
+## ⚠️ Errores Críticos y Sus Soluciones
+
+### Error 1: `status=203/EXEC` (Servicio no inicia)
+**Causa:** Falta permiso de ejecución en el binario  
+**Solución:** `sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360`
+
+### Error 2: `Globalization Invariant Mode is not supported`
+**Causa:** Faltan librerías ICU nativas (libicudata.so, libicui18n.so, libicuuc.so)  
+**Solución:** Copiar **TODA la carpeta `publish`** desde Windows, no solo el ejecutable
+
+---
+
 ## 📦 Pre-requisitos
 
 - Acceso SSH al servidor Linux (PuTTY)
 - Acceso SFTP al servidor Linux (WinSCP)
 - Servicio `integracion-koach360` ya configurado en el servidor
-- Scripts PHP generando archivos en `/storage/tareas/`
+- Conectividad con SQL Server (10.10.100.12:1433)
 
 ---
 
 ## 🚀 Proceso de Despliegue
 
-### Paso 1: Compilar para Linux (Ya realizado)
+### Paso 1: Compilar para Linux
+
+**Comando correcto (usar solo este):**
 
 ```bash
-dotnet publish -c Release -r linux-x64 --self-contained -o publish
+dotnet publish -c Release -o publish
 ```
 
-✅ **Ejecutable generado:** `publish/IntegracionKoach360`
+✅ **Carpeta generada:** `publish/` (contiene ejecutable y todas las dependencias)
+
+**⚠️ IMPORTANTE:** El comando simplificado funciona porque el `.csproj` ya tiene configurado:
+- `RuntimeIdentifier=linux-x64`
+- `PublishSelfContained=true`
+- `PublishTrimmed=false` (necesario para incluir librerías ICU)
+
+**Verificar que se generaron las librerías ICU:**
+
+```powershell
+# Desde PowerShell en Windows
+cd C:\xampp\htdocs\klienteAPI\IntegracionKoach360\publish
+dir libicu*
+```
+
+Debes ver archivos como:
+- `libicudata.so.72.1.0.3`
+- `libicui18n.so.72.1.0.3`
+- `libicuuc.so.72.1.0.3`
+
+Si **NO** aparecen estos archivos, hay un problema con la configuración del proyecto.
 
 ---
 
@@ -35,15 +69,15 @@ sudo systemctl status integracion-koach360
 
 ---
 
-### Paso 3: Hacer Backup del Ejecutable Actual
+### Paso 3: Hacer Backup de la Carpeta Actual
 
 ```bash
 # Crear carpeta de backups si no existe
 sudo mkdir -p /storage/IntegracionKoach360/backups
 
-# Hacer backup con fecha
-sudo cp /storage/IntegracionKoach360/publish/IntegracionKoach360 \
-       /storage/IntegracionKoach360/backups/IntegracionKoach360_$(date +%Y%m%d_%H%M%S)
+# Hacer backup completo de la carpeta publish con fecha
+sudo cp -r /storage/IntegracionKoach360/publish \
+       /storage/IntegracionKoach360/backups/publish_$(date +%Y%m%d_%H%M%S)
 
 # Listar backups
 ls -la /storage/IntegracionKoach360/backups/
@@ -51,39 +85,93 @@ ls -la /storage/IntegracionKoach360/backups/
 
 ---
 
-### Paso 4: Copiar el Nuevo Ejecutable
+### Paso 4: Copiar TODA la Carpeta Publish
 
-**Usando WinSCP:**
+⚠️ **IMPORTANTE:** Debes copiar **TODA la carpeta `publish`**, NO solo el ejecutable. 
+La aplicación necesita todas las librerías nativas (ICU, SQL Client, etc).
+
+**Opción A - Usando WinSCP (Recomendado):**
 
 1. Conectarse al servidor
-2. Navegar a: `C:\xampp\htdocs\klienteAPI\IntegracionKoach360\publish\` (local)
-3. Navegar a: `/storage/IntegracionKoach360/publish/` (remoto)
-4. Copiar **solo el archivo**: `IntegracionKoach360`
-5. **NO copiar** los archivos `*.json` (el servidor usa los de `/storage/tareas/`)
+2. **Navegar local:** `C:\xampp\htdocs\klienteAPI\IntegracionKoach360\publish\`
+3. **Navegar remoto:** `/storage/IntegracionKoach360/`
+4. **Seleccionar TODOS los archivos de la carpeta `publish` local**
+5. **Arrastrar a `/storage/IntegracionKoach360/publish/`** (sobrescribir todo)
 
-**O usando SCP desde PowerShell:**
+⚠️ **NOTA WinSCP:** Al copiar archivos, WinSCP **NO preserva** los permisos de ejecución del archivo original. Por eso es **OBLIGATORIO** ejecutar `chmod +x` después de copiar.
+
+Después de copiar con WinSCP, en **PuTTY** ejecutar:
+
+```bash
+# ⚠️ CRÍTICO: Dar permisos de ejecución
+sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360
+sudo chmod 755 /storage/IntegracionKoach360/publish/libicu*
+sudo chmod +x /storage/IntegracionKoach360/publish/createdump
+sudo chmod 600 /storage/IntegracionKoach360/publish/config.json
+sudo chown -R root:root /storage/IntegracionKoach360/publish
+
+# Verificar permisos
+ls -la /storage/IntegracionKoach360/publish/IntegracionKoach360
+# Debe mostrar: -rwxr-xr-x (con 'x' = ejecutable)
+```
+
+**Opción B - Usando SCP desde PowerShell:**
 
 ```powershell
-# Desde Windows
-scp publish/IntegracionKoach360 usuario@servidor:/tmp/IntegracionKoach360_nuevo
+# Desde la carpeta del proyecto
+cd C:\xampp\htdocs\klienteAPI\IntegracionKoach360
+
+# Copiar toda la carpeta publish al servidor (ajusta usuario@servidor)
+scp -r publish/* usuario@servidor:/tmp/publish_nuevo/
 ```
 
 Luego en **PuTTY**:
 
 ```bash
-# Mover al destino
-sudo mv /tmp/IntegracionKoach360_nuevo /storage/IntegracionKoach360/publish/IntegracionKoach360
+# Mover toda la carpeta
+sudo rm -rf /storage/IntegracionKoach360/publish
+sudo mv /tmp/publish_nuevo /storage/IntegracionKoach360/publish
 
-# Dar permisos de ejecución
+# ⚠️ CRÍTICO: Dar permisos de ejecución al ejecutable
+# Este paso es OBLIGATORIO, de lo contrario el servicio fallará con error 203/EXEC
 sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360
+
+# Dar permisos a librerías ICU y otras dependencias
+sudo chmod 755 /storage/IntegracionKoach360/publish/libicu*
+sudo chmod +x /storage/IntegracionKoach360/publish/createdump
+
+# Dar permisos a configuración (solo lectura)
+sudo chmod 600 /storage/IntegracionKoach360/publish/config.json
+
+# Verificar propietario
+sudo chown -R root:root /storage/IntegracionKoach360/publish
 ```
+
+**Verificar que se copiaron las librerías ICU y los permisos:**
+
+```bash
+# Verificar librerías ICU
+ls -la /storage/IntegracionKoach360/publish/libicu*
+
+# Verificar permisos del ejecutable (DEBE tener 'x' en permisos)
+ls -la /storage/IntegracionKoach360/publish/IntegracionKoach360
+```
+
+Debes ver:
+- `libicudata.so.72.1.0.3`
+- `libicui18n.so.72.1.0.3`
+- `libicuuc.so.72.1.0.3`
+
+Y el ejecutable debe mostrar: `-rwxr-xr-x` (con 'x' = ejecutable)
+
+Si muestra `-rw-r--r--` (sin 'x'), el servicio **NO funcionará** (error 203/EXEC).
 
 ---
 
 ### Paso 5: Verificar Configuración
 
 ```bash
-# Verificar que config.json tiene las rutas correctas
+# Verificar que config.json tiene la configuración correcta
 cat /storage/IntegracionKoach360/publish/config.json
 ```
 
@@ -91,9 +179,28 @@ cat /storage/IntegracionKoach360/publish/config.json
 
 ```json
 {
-  "rutaVentas": "/storage/tareas/ventas.json",
-  "rutaAsistencias": "/storage/tareas/asistencias.json",
-  ...
+  "usuario": "rolandpruebas-int",
+  "password": "tu-password",
+  "clienteId": 21,
+  "usuarioApi": "rolandpruebas-int",
+  "claveApi": "tu-clave-api",
+  "intervaloHoras": 1,
+  "baseUrl": "https://koach360.kliente.tech:5000",
+  
+  "database": {
+    "connectionString": "Server=10.10.100.12;Database=STORECONTROL;User Id=consultas;Password=Datos.22;TrustServerCertificate=True;MultipleActiveResultSets=True;",
+    "commandTimeout": 120
+  },
+  
+  "logging": {
+    "nivelMinimo": "Information",
+    "guardarEnArchivo": true,
+    "rutaArchivoLogs": "/storage/sc22/logs/integracion",
+    "nombreArchivo": "integracion-koach360-{Date}.log",
+    "tamañoMaximoArchivo": "10MB",
+    "archivosRetenidos": 30,
+    "mostrarEnConsola": true
+  }
 }
 ```
 
@@ -105,26 +212,34 @@ sudo nano /storage/IntegracionKoach360/publish/config.json
 
 ---
 
-### Paso 6: Verificar que los Scripts PHP Están Generando los JSON
+### Paso 6: Verificar Conectividad con SQL Server
 
 ```bash
-# Ver contenido de los archivos
-ls -la /storage/tareas/*.json
+# Verificar conectividad con SQL Server (opcional)
+# Requiere instalar sqlcmd: sudo apt install mssql-tools
+/opt/mssql-tools/bin/sqlcmd -S 10.10.100.12 -U consultas -P 'Datos.22' -Q "SELECT @@VERSION"
 
-# Ver contenido (primeras líneas)
-head -20 /storage/tareas/ventas.json
-head -20 /storage/tareas/asistencias.json
+# Verificar conectividad de red
+ping 10.10.100.12
 
-# Ver logs de los scripts PHP
-tail -20 /storage/tareas/syn_put_ventas.log
-tail -20 /storage/tareas/syn_put_asistencias.log
+# Verificar puerto SQL Server (1433)
+telnet 10.10.100.12 1433
 ```
+
+**Nota:** La aplicación consulta directamente SQL Server, no requiere archivos JSON externos.
 
 ---
 
 ### Paso 7: Iniciar el Servicio
 
 ```bash
+# ⚠️ ANTES de iniciar, verificar una última vez los permisos del ejecutable
+ls -la /storage/IntegracionKoach360/publish/IntegracionKoach360
+# DEBE mostrar: -rwxr-xr-x (con 'x' = ejecutable)
+
+# Si NO tiene permisos de ejecución, darlos ahora:
+sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360
+
 # Iniciar el servicio
 sudo systemctl start integracion-koach360
 
@@ -134,6 +249,16 @@ sudo systemctl status integracion-koach360
 # Ver logs en tiempo real
 sudo journalctl -u integracion-koach360 -f
 ```
+
+**Estado esperado:**
+```
+Active: active (running)
+```
+
+**Si aparece error 203/EXEC:**
+- Significa que falta permiso de ejecución
+- Ejecuta: `sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360`
+- Reinicia: `sudo systemctl restart integracion-koach360`
 
 ---
 
@@ -206,12 +331,17 @@ Si hay problemas, restaurar la versión anterior:
 # Detener el servicio
 sudo systemctl stop integracion-koach360
 
-# Restaurar el backup más reciente
-sudo cp /storage/IntegracionKoach360/backups/IntegracionKoach360_YYYYMMDD_HHMMSS \
-       /storage/IntegracionKoach360/publish/IntegracionKoach360
+# Ver backups disponibles
+ls -la /storage/IntegracionKoach360/backups/
+
+# Restaurar el backup más reciente (reemplaza YYYYMMDD_HHMMSS con la fecha del backup)
+sudo rm -rf /storage/IntegracionKoach360/publish
+sudo cp -r /storage/IntegracionKoach360/backups/publish_YYYYMMDD_HHMMSS \
+       /storage/IntegracionKoach360/publish
 
 # Dar permisos
 sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360
+sudo chmod 755 /storage/IntegracionKoach360/publish/libicu*
 
 # Iniciar el servicio
 sudo systemctl start integracion-koach360
@@ -224,41 +354,51 @@ sudo systemctl status integracion-koach360
 
 ## 📋 Checklist de Despliegue
 
-- [ ] Compilar para Linux
-- [ ] Detener servicio
-- [ ] Hacer backup del ejecutable actual
-- [ ] Copiar nuevo ejecutable al servidor
-- [ ] Dar permisos de ejecución (chmod +x)
+- [ ] Compilar para Linux (`dotnet publish -c Release -o publish`)
+- [ ] Verificar que se generaron las librerías ICU en `publish/` (Windows)
+- [ ] Detener servicio en el servidor
+- [ ] Hacer backup completo de la carpeta `publish` actual
+- [ ] Copiar **TODA** la carpeta `publish` al servidor (no solo el ejecutable)
+- [ ] Verificar que las librerías ICU se copiaron al servidor
+- [ ] ⚠️ **CRÍTICO:** Dar permisos de ejecución (`chmod +x IntegracionKoach360`)
+- [ ] Dar permisos a librerías ICU (`chmod 755 libicu*`)
+- [ ] Verificar que el ejecutable tiene permisos (`ls -la` debe mostrar `-rwxr-xr-x`)
 - [ ] Verificar config.json
-- [ ] Verificar que archivos PHP existen en /storage/tareas/
+- [ ] Verificar conectividad con SQL Server (opcional)
 - [ ] Iniciar servicio
-- [ ] Verificar logs (journalctl)
-- [ ] Verificar logs de aplicación
-- [ ] Monitorear primera ejecución
-- [ ] Verificar que se ejecuta cada hora
+- [ ] Verificar estado del servicio (debe estar `active (running)`, NO `203/EXEC`)
+- [ ] Verificar logs (journalctl) - buscar errores de Globalization o 203/EXEC
+- [ ] Verificar logs de aplicación (`tail -f /storage/sc22/logs/integracion/...`)
+- [ ] Confirmar conexión exitosa a SQL Server en logs
+- [ ] Confirmar token de API obtenido en logs
+- [ ] Monitorear primera ejecución completa
+- [ ] Verificar que se ejecuta cada hora automáticamente
 
 ---
 
 ## 🆘 Solución de Problemas
 
-### Problema: "Archivo no encontrado: /storage/tareas/ventas.json"
+### Problema: "No se pudo conectar a SQL Server"
 
 ```bash
-# Verificar que el archivo existe
-ls -la /storage/tareas/ventas.json
+# Verificar conectividad de red
+ping 10.10.100.12
 
-# Si no existe, ejecutar manualmente el script PHP
-php /ruta/al/script/syn_put_ventas.php
+# Verificar puerto SQL (1433)
+telnet 10.10.100.12 1433
+
+# Ver error específico en logs
+sudo journalctl -u integracion-koach360 -n 50 | grep -A 5 "Error al consultar"
 ```
 
-### Problema: "Error al leer archivo"
+### Problema: "Error de autenticación SQL Server"
 
 ```bash
-# Verificar permisos
-ls -la /storage/tareas/*.json
+# Verificar credenciales en config.json
+cat /storage/IntegracionKoach360/publish/config.json | grep -A 3 "database"
 
-# Dar permisos si es necesario
-sudo chmod 644 /storage/tareas/*.json
+# Probar conexión manual (si sqlcmd está instalado)
+/opt/mssql-tools/bin/sqlcmd -S 10.10.100.12 -U consultas -P 'Datos.22' -Q "SELECT 1"
 ```
 
 ### Problema: "Token obtenido/renovado exitosamente" no aparece
@@ -270,18 +410,94 @@ curl -X POST https://koach360.kliente.tech:5000/api/Auth/login \
   -d '{"usuario":"rolandpruebas-int","password":"nJ33gzwxC3GL"}'
 ```
 
-### Problema: El servicio no inicia
+### Problema: El servicio no inicia (error 203/EXEC)
+
+Este error ocurre cuando el ejecutable **no tiene permisos de ejecución**.
+
+**Causa:** Al copiar archivos con WinSCP/SCP, los permisos de ejecución se pierden.
+
+**Solución:**
 
 ```bash
-# Ver logs completos del error
-sudo journalctl -u integracion-koach360 -xe
+# Verificar permisos actuales
+ls -la /storage/IntegracionKoach360/publish/IntegracionKoach360
 
-# Verificar que el ejecutable es válido
-file /storage/IntegracionKoach360/publish/IntegracionKoach360
+# Si muestra -rw-r--r-- (sin 'x'), dar permisos de ejecución
+sudo chmod +x /storage/IntegracionKoach360/publish/IntegracionKoach360
 
-# Probar ejecutar manualmente
+# Reiniciar el servicio
+sudo systemctl restart integracion-koach360
+
+# Verificar estado
+sudo systemctl status integracion-koach360
+```
+
+**Probar ejecutar manualmente:**
+
+```bash
 cd /storage/IntegracionKoach360/publish
 ./IntegracionKoach360
+```
+
+Si se ejecuta correctamente pero el servicio falla, revisar el archivo de servicio:
+
+```bash
+cat /etc/systemd/system/integracion-koach360.service
+```
+
+**Verificar que el ejecutable es válido:**
+
+```bash
+file /storage/IntegracionKoach360/publish/IntegracionKoach360
+# Debe mostrar: ELF 64-bit LSB pie executable, x86-64
+```
+
+### Problema: "Globalization Invariant Mode is not supported"
+
+Este error ocurre cuando faltan las **librerías ICU** nativas de Linux.
+
+**Causa:** La carpeta `publish` no fue copiada completamente desde Windows.
+
+**Solución:**
+
+```bash
+# 1. Verificar si existen las librerías ICU
+ls -la /storage/IntegracionKoach360/publish/libicu*
+
+# Si NO existen, debes republicar y copiar toda la carpeta desde Windows
+```
+
+**Desde Windows:**
+
+```powershell
+# Limpiar y republicar
+cd C:\xampp\htdocs\klienteAPI\IntegracionKoach360
+dotnet clean
+dotnet publish -c Release -o publish
+
+# Verificar que se generaron las librerías ICU
+dir publish\libicu*
+```
+
+Si ves archivos como `libicudata.so.72.1.0.3`, entonces **copia TODA la carpeta publish al servidor** siguiendo el **Paso 4**.
+
+**⚠️ CRÍTICO:** 
+- NO copies solo el ejecutable
+- Debes copiar **TODOS los archivos** de la carpeta `publish`
+- Especialmente las librerías: `libicudata.so.*`, `libicui18n.so.*`, `libicuuc.so.*`
+
+**Verificación en el servidor:**
+
+```bash
+# Ver las librerías ICU que requiere el ejecutable
+cd /storage/IntegracionKoach360/publish
+ldd IntegracionKoach360 | grep icu
+
+# Verificar permisos de las librerías
+ls -la libicu*
+
+# Si no tienen permisos de ejecución
+sudo chmod 755 /storage/IntegracionKoach360/publish/libicu*
 ```
 
 ---
@@ -325,4 +541,36 @@ cd /storage/IntegracionKoach360/publish
 - Los logs se guardan en: `/storage/sc22/logs/integracion/`
 - Los logs se rotan diariamente y se mantienen por **30 días**
 - El servicio se reinicia automáticamente si falla (configurado en systemd)
+
+### ⚠️ Errores Comunes y Soluciones Rápidas
+
+| Error | Causa | Solución Rápida |
+|-------|-------|----------------|
+| `status=203/EXEC` | Falta permiso de ejecución | `sudo chmod +x IntegracionKoach360` |
+| `Globalization Invariant Mode` | Faltan librerías ICU | Copiar TODA la carpeta `publish`, no solo el ejecutable |
+| `No se pudo conectar a SQL Server` | Conectividad de red | Verificar firewall, ping, telnet al puerto 1433 |
+| `Token no obtenido` | Credenciales incorrectas | Verificar `config.json`, probar con curl |
+
+### 🎯 Señales de Éxito
+
+Si todo está funcionando correctamente, deberías ver en los logs:
+
+```
+[INF] Iniciando IntegracionKoach360...
+[INF] Configuración cargada correctamente
+[INF] Procesando ventas...
+[INF] Consulta de ventas ejecutada: X registros obtenidos
+[INF] Procesando asistencias...
+[INF] Consulta de asistencias ejecutada: X registros obtenidos
+[INF] Token obtenido/renovado exitosamente
+[INF] Ventas enviadas exitosamente
+[INF] Asistencias enviadas exitosamente
+[INF] Proceso de integración completado exitosamente
+```
+
+**NO** deberías ver:
+- ❌ `Globalization Invariant Mode is not supported`
+- ❌ `No se pudo conectar a SQL Server`
+- ❌ `Error al autenticar`
+- ❌ Error 203/EXEC en systemd
 

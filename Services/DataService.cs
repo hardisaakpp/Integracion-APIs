@@ -1,5 +1,6 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
+using System.Globalization;
 using IntegracionKoach360.Interfaces;
 using IntegracionKoach360.Models;
 
@@ -71,8 +72,8 @@ namespace IntegracionKoach360.Services
                 }
                 else
                 {
-                    _loggingService.Warning("Asistencia inválida - Nombre: {Nombre}, Cédula: {Cedula}, Cargo: {Cargo}, Local: {Local}, Correo: {Correo}", 
-                        asistencia.asesorNombre ?? "NULL", 
+                    _loggingService.Warning("Asistencia inválida - Nombre: {Nombre}, Cédula: {Cedula}, Cargo: {Cargo}, Local: {Local}, Correo: {Correo}",
+                        asistencia.asesorNombre ?? "NULL",
                         asistencia.asesorCedula ?? "NULL",
                         asistencia.asesorCargo ?? "NULL",
                         asistencia.localNombre ?? "NULL",
@@ -187,14 +188,14 @@ namespace IntegracionKoach360.Services
                 command.CommandTimeout = _config.database.commandTimeout;
 
                 using var reader = await command.ExecuteReaderAsync();
-                
+
                 while (await reader.ReadAsync())
                 {
                     ventas.Add(new VentaData
                     {
                         facturaNumero = reader["factura_numero"].ToString() ?? string.Empty,
-                        facturaFecha = DateTime.ParseExact(reader["factura_fecha"].ToString() ?? "", "yyyyMMdd", null),
-                        facturaHora = TimeSpan.Parse(reader["factura_hora"].ToString() ?? "00:00:00"),
+                        facturaFecha = DateTime.ParseExact(reader["factura_fecha"].ToString() ?? "", "yyyyMMdd", CultureInfo.InvariantCulture),
+                        facturaHora = TimeSpan.Parse(reader["factura_hora"].ToString() ?? "00:00:00", CultureInfo.InvariantCulture),
                         facturaOrigen = reader["factura_origen"].ToString() ?? string.Empty,
                         asesorNombre = reader["asesor_nombre"].ToString() ?? string.Empty,
                         asesorCedula = reader["asesor_cedula"].ToString() ?? string.Empty,
@@ -228,15 +229,16 @@ namespace IntegracionKoach360.Services
 
             string query = @"
                 DECLARE @hoy DATE = CAST(GETDATE() AS DATE);
-                DECLARE @hace7 DATE = DATEADD(DAY, -7, @hoy);
 
                 WITH AsistenciasUnicas AS (
                     SELECT DISTINCT
                         USERID,
                         Fecha = CONVERT(DATE, CHECKTIME),
-                        Hora = CONVERT(TIME, CHECKTIME)
+                        Hora  = CONVERT(TIME, CHECKTIME)
                     FROM ElRayoBiometricos.dbo.VistaRegistrosT
-                    WHERE CHECKTIME BETWEEN @hace7 AND @hoy
+                    WHERE 
+                        CONVERT(DATE, CHECKTIME) = @hoy
+                        AND CONVERT(TIME, CHECKTIME) <= CONVERT(TIME, GETDATE())
                 )
 
                 SELECT
@@ -252,7 +254,7 @@ namespace IntegracionKoach360.Services
                     ON A.USERID COLLATE SQL_Latin1_General_CP1_CI_AS = P.strDPe_numtarjeta COLLATE SQL_Latin1_General_CP1_CI_AS
                 INNER JOIN plataforma_web.dbo.tmp_kliente AS k 
                     ON k.kli_txt_cedula COLLATE SQL_Latin1_General_CP1_CI_AS = P.strDPe_Cedula 
-                    AND k.kli_sts_estado=1
+                    AND k.kli_sts_estado = 1
                 WHERE
                     k.kli_txt_cargo IN ('ASESOR DE VENTAS', 'ASESOR VARIOS')
                     AND k.id_empresa = 1
@@ -272,7 +274,7 @@ namespace IntegracionKoach360.Services
                 command.CommandTimeout = _config.database.commandTimeout;
 
                 using var reader = await command.ExecuteReaderAsync();
-                
+
                 while (await reader.ReadAsync())
                 {
                     var correo = reader["asesor_correo"].ToString() ?? string.Empty;
