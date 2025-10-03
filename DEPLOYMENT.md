@@ -265,8 +265,8 @@ Active: active (running)
 ### Paso 8: Verificar Logs de la Aplicación
 
 ```bash
-# Ver el log del día actual
-tail -f /storage/sc22/logs/integracion/integracion-koach360-$(date +%Y%m%d).log
+# Ver el log del día actual - seleccionar la fecha deseada
+tail -f /storage/IntegracionKoach360/logs/integracion-koach360-{Date}20251003.log
 ```
 
 **Debes ver:**
